@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>آینه | سیستم خودآگاهی مربع سفید</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAFAF7;
+    --ink:#14151C;
+    --navy:#232842;
+    --orange:#E37222;
+    --line: rgba(20,21,28,0.12);
+    --soft: rgba(20,21,28,0.55);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Vazirmatn',sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  /* ---------- animated ambient background ---------- */
+  .bg-field{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+  .bg-field::before{
+    content:'';position:absolute;inset:-20%;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(227,114,34,0.07), transparent 40%),
+      radial-gradient(circle at 80% 30%, rgba(35,40,66,0.08), transparent 45%),
+      radial-gradient(circle at 50% 80%, rgba(227,114,34,0.05), transparent 40%);
+    animation: driftBg 22s ease-in-out infinite alternate;
+  }
+  @keyframes driftBg{
+    0%{transform:translate(0,0) scale(1);}
+    100%{transform:translate(-3%,2%) scale(1.05);}
+  }
+  .floating-sq{position:absolute;width:10px;height:10px;opacity:0.15;animation: floatSq 14s linear infinite;}
+  @keyframes floatSq{
+    0%{transform:translateY(0) rotate(0deg);opacity:0.12;}
+    50%{opacity:0.22;}
+    100%{transform:translateY(-120vh) rotate(180deg);opacity:0;}
+  }
+  .confetti-piece{position:fixed;top:-20px;width:8px;height:8px;z-index:50;pointer-events:none;animation: fall linear forwards;}
+  @keyframes fall{ to{transform:translateY(110vh) rotate(540deg);opacity:0.2;} }
+
+  .app{
+    width:100%;max-width:560px;min-height:100vh;
+    background:transparent;
+    display:flex;flex-direction:column;position:relative;z-index:1;
+  }
+
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:22px 24px 16px;
+  }
+  .quad{width:22px;height:22px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;animation: quadPulse 3.2s ease-in-out infinite;}
+  @keyframes quadPulse{
+    0%,100%{transform:scale(1) rotate(0deg);}
+    50%{transform:scale(1.08) rotate(4deg);}
+  }
+  .quad span{background:var(--ink);}
+  .quad span:nth-child(4){background:var(--orange);}
+  .brand-name{font-size:13px;letter-spacing:0.04em;color:var(--soft);}
+  .brand-name b{color:var(--ink);}
+
+  .progress-track{height:3px;background:var(--line);margin:0 24px;border-radius:2px;overflow:hidden;}
+  .progress-fill{height:100%;background:linear-gradient(90deg, var(--orange), #ff9a56);width:0%;transition:width .5s cubic-bezier(.4,0,.2,1);box-shadow:0 0 10px rgba(227,114,34,0.5);}
+
+  main{flex:1;padding:28px 24px 40px;display:flex;flex-direction:column;}
+
+  .screen{display:none;flex-direction:column;flex:1;animation:fadeIn .4s ease;}
+  .screen.active{display:flex;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:var(--orange);text-transform:uppercase;margin-bottom:10px;}
+  h1{font-size:28px;line-height:1.4;margin:0 0 14px;font-weight:800;}
+  h2{font-size:20px;line-height:1.5;margin:0 0 8px;font-weight:700;}
+  p.lead{font-size:15px;line-height:1.9;color:var(--soft);margin:0 0 24px;}
+
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;}
+
+  /* module hub cards */
+  .module-card{
+    background:#fff;border:1px solid var(--line);border-radius:16px;
+    padding:20px;margin-bottom:14px;cursor:pointer;transition:border-color .15s ease;
+  }
+  .module-card:hover{border-color:var(--navy);}
+  .module-card .eyebrow{margin-bottom:8px;}
+  .module-card h3{font-size:17px;margin:0 0 6px;font-weight:700;}
+  .module-card p{font-size:13px;color:var(--soft);margin:0;line-height:1.7;}
+  .module-card .meta{font-size:11px;color:var(--soft);font-family:'IBM Plex Mono',monospace;margin-top:10px;}
+
+  label.field-label{display:block;font-size:13px;color:var(--soft);margin-bottom:8px;}
+  input[type=text], input[type=tel]{
+    width:100%;padding:14px 16px;font-size:15px;border:1px solid var(--line);border-radius:10px;
+    background:#fff;color:var(--ink);font-family:inherit;margin-bottom:16px;
+  }
+  textarea{
+    width:100%;padding:14px 16px;font-size:15px;border:1px solid var(--line);border-radius:10px;
+    background:#fff;color:var(--ink);font-family:inherit;resize:vertical;min-height:70px;
+  }
+  input:focus, textarea:focus{outline:2px solid var(--navy);outline-offset:1px;}
+
+  .q-block{margin-bottom:28px;opacity:0;animation:qReveal .5s ease forwards;}
+  @keyframes qReveal{ from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+  .q-num{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--orange);margin-bottom:6px;}
+  .q-text{font-size:16px;line-height:1.8;font-weight:600;margin-bottom:14px;}
+
+  .likert{display:flex;gap:8px;justify-content:space-between;}
+  .likert button{
+    flex:1;padding:12px 4px;border-radius:10px;border:1.5px solid var(--line);
+    background:#fff;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--soft);cursor:pointer;
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1), background .2s ease, border-color .2s ease, color .2s ease;
+  }
+  .likert button:active{transform:scale(0.92);}
+  .likert button.selected{background:var(--navy);border-color:var(--navy);color:#fff;transform:scale(1.08);box-shadow:0 4px 14px rgba(35,40,66,0.3);}
+  .likert-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--soft);margin-top:6px;}
+
+  .mc-options{display:flex;flex-direction:column;gap:8px;}
+  .mc-options button{
+    text-align:right;padding:13px 16px;border-radius:10px;border:1.5px solid var(--line);
+    background:#fff;font-family:'Vazirmatn',sans-serif;font-size:14px;color:var(--ink);cursor:pointer;
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1), background .2s ease, border-color .2s ease, color .2s ease;
+  }
+  .mc-options button:active{transform:scale(0.97);}
+  .mc-options button.selected{background:var(--navy);border-color:var(--navy);color:#fff;box-shadow:0 4px 14px rgba(35,40,66,0.3);}
+
+  .nav-row{display:flex;gap:10px;margin-top:auto;padding-top:24px;}
+  button.btn{
+    font-family:'Vazirmatn',sans-serif;font-weight:700;font-size:15px;padding:16px 20px;
+    border-radius:12px;border:none;cursor:pointer;flex:1;transition:transform .15s ease, opacity .15s ease;
+  }
+  button.btn:active{transform:scale(0.97);}
+  button.btn:disabled{opacity:.35;cursor:not-allowed;}
+  .btn-primary{background:var(--ink);color:var(--paper);box-shadow:0 4px 16px rgba(20,21,28,0.2);}
+  .btn-primary:not(:disabled):hover{opacity:.9;transform:translateY(-1px);}
+  .btn-ghost{background:transparent;color:var(--soft);border:1px solid var(--line);flex:0 0 auto;}
+
+  .axis-row{margin-bottom:18px;opacity:0;animation:qReveal .5s ease forwards;}
+  .axis-top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;}
+  .axis-name{font-weight:700;}
+  .axis-pct{font-family:'IBM Plex Mono',monospace;color:var(--soft);}
+  .bar-track{height:10px;background:var(--line);border-radius:6px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:6px;background:var(--navy);width:0%;transition:width 1.1s cubic-bezier(.16,1,.3,1);}
+  .bar-fill.focus{background:linear-gradient(90deg, var(--orange), #ff9a56);box-shadow:0 0 10px rgba(227,114,34,0.4);}
+
+  .insight-card{background:var(--navy);color:var(--paper);border-radius:14px;padding:20px;margin:20px 0;position:relative;overflow:hidden;opacity:0;animation:qReveal .6s ease forwards;animation-delay:.4s;}
+  .insight-card::before{
+    content:'';position:absolute;top:-40%;left:-20%;width:60%;height:180%;
+    background:linear-gradient(120deg, transparent, rgba(227,114,34,0.18), transparent);
+    animation: shimmer 3.5s ease-in-out infinite;
+  }
+  @keyframes shimmer{ 0%{transform:translateX(-40%) rotate(8deg);} 100%{transform:translateX(220%) rotate(8deg);} }
+  .insight-card .eyebrow{color:var(--orange);position:relative;}
+  .insight-card p{font-size:15px;line-height:1.9;margin:0 0 10px;position:relative;}
+  .insight-card p:last-child{margin-bottom:0;}
+
+  .question-prompt{border:1px dashed var(--line);border-radius:14px;padding:18px 20px;margin-top:8px;}
+  .question-prompt .eyebrow{color:var(--soft);}
+  .question-prompt p{font-size:16px;font-weight:600;margin:0;}
+
+  .creative-echo{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-top:16px;}
+  .creative-echo .eyebrow{color:var(--soft);}
+  .creative-echo .echo-item{font-size:14px;line-height:1.8;margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed var(--line);}
+  .creative-echo .echo-item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+  .creative-echo .echo-q{color:var(--soft);font-size:12px;margin-bottom:3px;}
+
+  footer.admin-link{text-align:center;padding:18px;font-size:12px;color:var(--soft);}
+  footer.admin-link a{color:var(--soft);cursor:pointer;text-decoration:underline;}
+
+  .tab-row{display:flex;gap:8px;margin-bottom:18px;}
+  .tab-row button{
+    flex:1;padding:10px;border-radius:10px;border:1px solid var(--line);background:#fff;
+    font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--soft);cursor:pointer;
+  }
+  .tab-row button.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+
+  .admin-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .admin-table th, .admin-table td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:right;vertical-align:top;}
+  .admin-table th{font-family:'IBM Plex Mono',monospace;font-weight:500;color:var(--soft);}
+  .mini-bars{display:flex;gap:2px;}
+  .mini-bar{width:6px;height:20px;background:var(--line);border-radius:2px;align-self:flex-end;position:relative;}
+  .mini-bar i{position:absolute;bottom:0;right:0;left:0;background:var(--navy);border-radius:2px;}
+  .creative-cell{max-width:160px;font-size:11px;color:var(--soft);line-height:1.6;}
+
+  .empty-state{color:var(--soft);font-size:14px;text-align:center;padding:40px 0;}
+  .back-link{font-size:12px;color:var(--soft);cursor:pointer;text-decoration:underline;margin-bottom:16px;display:inline-block;}
+</style>
+</head>
+<body>
+<div class="bg-field" id="bgField"></div>
+<div class="app">
+
+  <header>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="quad"><span></span><span></span><span></span><span></span></div>
+      <div class="brand-name"><b>مربع سفید</b> · مستر وایت</div>
+    </div>
+    <div class="mono" style="font-size:11px;color:var(--soft);" id="stepLabel">آینه</div>
+  </header>
+
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+  <main>
+
+    <!-- SCREEN: HOME / MODULE HUB -->
+    <section class="screen active" data-screen="home">
+      <div class="eyebrow">قبل از جلسه حضوری</div>
+      <h1>خودت رو بشناس</h1>
+      <p class="lead">یکی از سه بخش زیر رو انتخاب کن. هرکدوم چند دقیقه طول می‌کشه و به حسام کمک می‌کنه جلسه رو بهتر شروع کنه.</p>
+
+      <div class="module-card" onclick="enterModule('mirror')">
+        <div class="eyebrow">۰۱ · آینه</div>
+        <h3>خودآگاهی و آماده‌بودن ذهنی</h3>
+        <p>مسیر، انگیزه، نظم، آرامش ذهنی، اعتماد به‌نفس و سبک زندگی.</p>
+        <div class="meta">۲۵ سوال · ~۴ دقیقه</div>
+      </div>
+
+      <div class="module-card" onclick="enterModule('iq')">
+        <div class="eyebrow">۰۲ · هوش و استعداد ذهنی</div>
+        <h3>سبک غالب تفکر</h3>
+        <p>منطقی-عددی، کلامی، بصری-فضایی و خلاقیت — یک عکس فوری، نه یک تست هوش رسمی.</p>
+        <div class="meta">۲۰ سوال · ~۵ دقیقه</div>
+      </div>
+
+      <div class="module-card" onclick="enterModule('career')">
+        <div class="eyebrow">۰۳ · استعدادیابی شغلی-هنری</div>
+        <h3>کدوم دنیای هنری بهت نزدیک‌تره</h3>
+        <p>تجسمی، دیجیتال، فضایی، روایی-تصویری، نمایشی، کلامی-مفهومی.</p>
+        <div class="meta">۲۰ سوال · ~۴ دقیقه</div>
+      </div>
+
+      <footer class="admin-link"><a onclick="goTo('admin')">پنل حسام</a></footer>
+    </section>
+
+    <!-- SCREEN: INFO (shared across modules) -->
+    <section class="screen" data-screen="info">
+      <a class="back-link" onclick="goTo('home')">← بازگشت به فهرست</a>
+      <div class="eyebrow" id="infoEyebrow"></div>
+      <h2 id="infoTitle"></h2>
+      <p class="lead" id="infoLead"></p>
+
+      <label class="field-label">اسمت چیه؟</label>
+      <input type="text" id="inpName" placeholder="مثلاً پارسا">
+
+      <label class="field-label">رشته‌ی هنری‌ت؟</label>
+      <input type="text" id="inpField" placeholder="مثلاً معماری، گرافیک، موسیقی...">
+
+      <label class="field-label">شماره تماس (اختیاری)</label>
+      <input type="tel" id="inpPhone" placeholder="09...">
+
+      <div class="nav-row">
+        <button class="btn btn-ghost" onclick="goTo('home')">بازگشت</button>
+        <button class="btn btn-primary" onclick="startModule()">شروع</button>
+      </div>
+    </section>
+
+    <!-- SCREEN: QUESTIONS (generic pager, shared) -->
+    <section class="screen" data-screen="q">
+      <div class="eyebrow" id="qEyebrow"></div>
+      <h2 id="qTitle"></h2>
+      <div id="qBody"></div>
+      <div class="nav-row">
+        <button class="btn btn-ghost" onclick="prevSection()">قبلی</button>
+        <button class="btn btn-primary" id="qNextBtn" onclick="nextSection()">ادامه</button>
+      </div>
+    </section>
+
+    <!-- SCREEN: RESULTS (generic container, filled per module) -->
+    <section class="screen" data-screen="results">
+      <div class="eyebrow" id="resEyebrow"></div>
+      <h2 id="resGreeting"></h2>
+      <div id="resBody"></div>
+      <p style="font-size:12px;color:var(--soft);text-align:center;margin-top:24px;">
+        این نتیجه جای مشاوره‌ی تخصصی رو نمی‌گیره؛ فقط شروع یه گفتگوی بهتره. 🌱
+      </p>
+      <div class="nav-row">
+        <button class="btn btn-ghost" onclick="goTo('home')">بازگشت به فهرست</button>
+      </div>
+    </section>
+
+    <!-- SCREEN: ADMIN -->
+    <section class="screen" data-screen="admin">
+      <a class="back-link" onclick="goTo('home')">← بازگشت</a>
+      <div class="eyebrow">فقط حسام</div>
+      <h2>جواب‌ها کجاست؟</h2>
+      <p class="lead">
+        هر بار که کسی هر کدوم از ۳ بخش رو تموم کنه، جوابش خودکار به گوگل‌فرم فرستاده می‌شه
+        و توی یک Google Sheet ثبت می‌شه — همون‌جایی که همیشه در دسترس حسامه، از هر گوشی یا کامپیوتری.
+      </p>
+      <div class="card">
+        <p style="font-size:13px;color:var(--soft);line-height:1.9;margin:0;">
+          برای دیدن جواب‌ها: وارد <b>forms.google.com</b> بشو → فرم «پاسخ‌های آینه» رو باز کن →
+          تب <b>Responses</b> → روی آیکون سبز Sheets بزن تا همه‌ی جواب‌ها به‌صورت جدول باز بشه.
+        </p>
+      </div>
+      <div class="nav-row">
+        <button class="btn btn-primary" onclick="window.open('https://forms.google.com','_blank')">باز کردن Google Forms</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ============================================================
+   White Square — Self-Awareness / IQ / Career Aptitude System
+   ============================================================ */
+
+const LIKERT = [1,2,3,4,5];
+
+/* ---------------- MODULE 1: MIRROR (آینه) ---------------- */
+const MIRROR = {
+  key:'mirror',
+  storagePrefix:'mirror:sub:',
+  info:{ eyebrow:'۰۱ · آینه', title:'یه معرفی کوتاه از خودت',
+         lead:'این اطلاعات فقط برای شناخت بهتر توئه، جایی منتشر نمی‌شه.' },
+  domains:[
+    { id:'a1', name:'مسیر و هدف', type:'likert', items:[
+      'می‌دونم دقیقاً چرا دارم برای این رشته و کنکور تلاش می‌کنم.',
+      'یک تصویر روشن از آینده‌ای که می‌خوام، دارم.',
+      'وقتی به هدفم فکر می‌کنم، انگیزه می‌گیرم نه استرس.',
+      'انتخاب این رشته حس خودمه، نه فقط خواسته‌ی اطرافیان.',
+      'اگه شرایط سخت بشه، بازم دلیل کافی برای ادامه دادن دارم.'
+    ]},
+    { id:'a2', name:'تمرکز و انضباط', type:'likert', items:[
+      'وقتی برنامه می‌ریزم، معمولاً بهش پایبند می‌مونم.',
+      'موقع درس خوندن یا تمرین، راحت تمرکزم رو از دست نمی‌دم.',
+      'زمان‌بندی روزم بیشتر دست خودمه تا اتفاقی.',
+      'کارهای مهم رو معمولاً به تعویق نمی‌ندازم.',
+      'بین تمرین‌های هنری و درس‌های تئوری تعادل دارم.'
+    ]},
+    { id:'a3', name:'آرامش ذهنی', type:'likert', items:[
+      'وقتی به کنکور فکر می‌کنم، بیشتر آرومم تا نگران.',
+      'استرس امتحان معمولاً از کارم نمی‌ندازتم.',
+      'بلدم بعد یه روز سخت، خودمو آروم کنم.',
+      'مقایسه کردن خودم با بقیه زیاد اذیتم نمی‌کنه.',
+      'خواب و انرژی روزانه‌م نسبتاً خوبه.'
+    ]},
+    { id:'a4', name:'اعتماد به‌نفس', type:'likert', items:[
+      'به توانایی هنری خودم اعتماد دارم.',
+      'اشتباه کردن باعث نمی‌شه از خودم ناامید بشم.',
+      'نظر دیگران زیاد تصمیم‌های منو تغییر نمی‌ده.',
+      'فکر می‌کنم لیاقت موفقیت توی این مسیر رو دارم.',
+      'وقتی یه کار سخت جلومه، باور دارم از پسش برمیام.'
+    ]},
+    { id:'a5', name:'سبک زندگی', type:'likert', items:[
+      'ریتم روزانه‌م (خواب، غذا، ورزش) نسبتاً منظمه.',
+      'زمان کافی برای استراحت و کارهایی که دوست دارم می‌ذارم.',
+      'شبکه‌های اجتماعی زیاد از وقت و انرژیم نمی‌گیرن.',
+      'رابطه‌ی خوبی با خانواده‌م درباره‌ی مسیر تحصیلی‌م دارم.',
+      'حس می‌کنم زندگیم فقط خلاصه‌ی کنکور نیست.'
+    ]}
+  ],
+  strengthText:{
+    a1:'مسیر و دلیل حرکتت برات نسبتاً روشنه — این خودش یه سرمایه‌ی بزرگه.',
+    a2:'توی نظم و تمرکز روزانه نقطه‌قوت داری.',
+    a3:'با وجود فشار کنکور، آرامش ذهنی خوبی رو حفظ کردی.',
+    a4:'اعتماد به‌نفس و باور به توانایی‌هات نقطه‌ی قوت توئه.',
+    a5:'سبک زندگی و تعادل روزانه‌ت نسبتاً خوب پیش می‌ره.'
+  },
+  focusText:{
+    a1:'شاید این روزها دلیل حرکتت به‌اندازه‌ی کافی روشن نیست — خوبه امروز بیشتر روش صحبت کنید.',
+    a2:'نظم و مدیریت زمان می‌تونه امروز کانون خوبی برای صحبت باشه.',
+    a3:'به‌نظر می‌رسه استرس و فشار ذهنی این روزها بیشتر از حد معموله.',
+    a4:'اعتماد به‌نفس جاییه که ارزش داره امروز بیشتر بهش پرداخته بشه.',
+    a5:'سبک زندگی و ریتم روزانه‌ت این روزها به توجه بیشتری نیاز داره.'
+  },
+  sessionQuestion:{
+    a1:'چرا دارم این مسیر رو انتخاب می‌کنم؟',
+    a2:'کجای روزم بیشتر از همه هدر می‌ره؟',
+    a3:'این روزها بیشتر از چی نگرانم؟',
+    a4:'کِی آخرین‌بار به خودم افتخار کردم؟',
+    a5:'زندگیم غیر از کنکور چه شکلیه؟'
+  }
+};
+
+/* ---------------- MODULE 2: IQ / APTITUDE ---------------- */
+const IQ = {
+  key:'iq',
+  storagePrefix:'iq:sub:',
+  info:{ eyebrow:'۰۲ · هوش و استعداد ذهنی', title:'یه عکس فوری از سبک ذهنی‌ت',
+         lead:'این جایگزین تست هوش رسمی نیست؛ فقط کمکه که حسام بفهمه ذهنت بیشتر تحلیلی کار می‌کنه یا تصویری یا خلاق.' },
+  domains:[
+    { id:'logic', name:'منطقی-عددی', type:'mc', items:[
+      { q:'دنباله را کامل کن: ۳, ۶, ۱۲, ۲۴, ___', options:['۳۶','۴۲','۴۸','۵۴'], correct:2 },
+      { q:'دنباله را کامل کن: ۱, ۴, ۹, ۱۶, ___', options:['۲۰','۲۵','۲۳','۳۶'], correct:1 },
+      { q:'اگر امروز سه‌شنبه است، ۱۰ روز دیگر چه روزی است؟', options:['پنجشنبه','جمعه','شنبه','یکشنبه'], correct:1 },
+      { q:'دنباله را کامل کن: ۲, ۳, ۵, ۸, ۱۳, ___', options:['۱۸','۲۰','۲۱','۲۴'], correct:2 },
+      { q:'اگر ۳ کتاب ۱۵٬۰۰۰ تومان باشد، ۵ کتاب چند تومان است؟', options:['۲۰٬۰۰۰','۲۲٬۰۰۰','۲۵٬۰۰۰','۳۰٬۰۰۰'], correct:2 }
+    ]},
+    { id:'verbal', name:'کلامی', type:'mc', items:[
+      { q:'قلم به نوشتن، مثل قلم‌مو به ___؟', options:['نقاشی‌کردن','نوشتن','ساختن','بریدن'], correct:0 },
+      { q:'کدام کلمه با بقیه فرق دارد؟', options:['چوب','رنگ','بوم','شعر'], correct:3 },
+      { q:'کدام کلمه با بقیه فرق دارد؟', options:['دایره','مربع','مثلث','رنگ'], correct:3 },
+      { q:'متضاد «روشن» چیست؟', options:['تاریک','سرد','بزرگ','تند'], correct:0 },
+      { q:'کدام کلمه معنی نزدیک‌تری به «خلاقیت» دارد؟', options:['تقلید','نوآوری','تکرار','کپی'], correct:1 }
+    ]},
+    { id:'spatial', name:'بصری-فضایی', type:'mc', items:[
+      { q:'یک مکعب قرمز را به ۲۷ مکعب کوچک (۳×۳×۳) تقسیم می‌کنیم. چند مکعب کوچک هیچ وجه رنگی ندارد؟', options:['۰','۱','۳','۶'], correct:1 },
+      { q:'یک برگه‌ی مربعی را دو بار از وسط تا می‌کنیم و یک گوشه‌اش را می‌بریم. وقتی باز شود چند سوراخ دیده می‌شود؟', options:['۱','۲','۴','۸'], correct:2 },
+      { q:'اگر ساعت ۳:۰۰ را در آینه ببینی، چه ساعتی نشان می‌دهد؟', options:['۹:۰۰','۳:۰۰','۶:۰۰','۱۲:۰۰'], correct:0 },
+      { q:'اگر یک مربع را از قطرش ببری، چه شکلی به‌دست می‌آید؟', options:['دو مثلث','دو مستطیل','دو دایره','دو لوزی'], correct:0 },
+      { q:'رو به شمال ایستاده‌ای؛ اگر به راست بچرخی، رو به کدام جهت هستی؟', options:['شرق','غرب','جنوب','شمال'], correct:0 }
+    ]},
+    { id:'creativity', name:'خلاقیت', type:'text', items:[
+      { q:'در ۳۰ ثانیه هر چقدر می‌تونی کاربرد غیرمعمول برای «گیره کاغذ» بنویس.' },
+      { q:'اگه یک حس جدید (غیر از ۵ حس معمول) داشتی، چی بود و چرا؟' },
+      { q:'یک استفاده‌ی جدید برای «آجر» بنویس، غیر از ساختمان‌سازی.' },
+      { q:'اگه رنگ‌ها صدا داشتن، رنگ قرمز چه صدایی می‌داد؟' },
+      { q:'یک داستان دو خطی با این سه کلمه بساز: آینه، باران، کلید.' }
+    ]}
+  ],
+  dominantText:{
+    logic:'ذهنت بیشتر تحلیلی و منطقی کار می‌کنه — با عدد، الگو و ترتیب راحته.',
+    verbal:'ذهنت بیشتر کلامی کار می‌کنه — با کلمه، معنا و رابطه‌ی بین مفاهیم راحته.',
+    spatial:'ذهنت بیشتر تصویری-فضاییه — با شکل، فضا و تجسم راحته.'
+  }
+};
+
+/* ---------------- MODULE 3: CAREER APTITUDE ---------------- */
+const CAREER = {
+  key:'career',
+  storagePrefix:'career:sub:',
+  info:{ eyebrow:'۰۳ · استعدادیابی شغلی-هنری', title:'کدوم دنیای هنری بهت نزدیک‌تره؟',
+         lead:'این یه راهنمای شروع گفتگوئه، نه تصمیم نهایی رشته.' },
+  domains:[
+    { id:'visual_art', name:'تجسمی', type:'likert', items:[
+      'وقتی فکری تو ذهنمه، اول دوست دارم با خط و رنگ نشونش بدم.',
+      'ساعت‌ها می‌تونم روی جزئیات یک اثر دستی کار کنم.',
+      'از نقاشی یا طراحی با دست بیشتر از کار با نرم‌افزار لذت می‌برم.',
+      'وقتی یک اثر هنری می‌بینم، اول به بافت و جنسش توجه می‌کنم.'
+    ]},
+    { id:'digital', name:'بصری-دیجیتال', type:'likert', items:[
+      'کار کردن با نرم‌افزار و ابزار دیجیتال برام لذت‌بخشه.',
+      'دنبال‌کردن ترندهای موشن‌گرافیک و انیمیشن برام جذابه.',
+      'دوست دارم یاد بگیرم چطور یک شخصیت یا دنیای دیجیتال بسازم.'
+    ]},
+    { id:'spatial_art', name:'کاربردی-فضایی', type:'likert', items:[
+      'به فضا، حجم و چیدمان چیزها خیلی توجه می‌کنم.',
+      'ساختن چیزهای کاربردی (نه فقط زیبا) برام مهمه.',
+      'وقتی وارد یه مکان جدید می‌شم، ناخودآگاه چیدمانشو تحلیل می‌کنم.'
+    ]},
+    { id:'narrative', name:'روایی-تصویری', type:'likert', items:[
+      'دوست دارم از طریق تصویر یا فیلم یه داستان تعریف کنم.',
+      'لحظه‌های واقعی زندگی رو دوست دارم با دوربین ثبت کنم.',
+      'وقتی فیلم می‌بینم، بیشتر به نحوه‌ی روایت و تدوینش فکر می‌کنم تا بازیگرا.',
+      'دوست دارم بدونم یک لحظه چطور از زوایای مختلف قابل روایته.'
+    ]},
+    { id:'performance', name:'اجرایی-نمایشی', type:'likert', items:[
+      'وقتی جلوی جمع هستم، انرژی می‌گیرم نه استرس.',
+      'بیان احساسات از طریق صدا، حرکت یا بازی برام راحته.',
+      'دوست دارم یک شخصیت یا نقش غیر از خودم رو تجربه کنم.'
+    ]},
+    { id:'conceptual', name:'کلامی-مفهومی', type:'likert', items:[
+      'نوشتن درباره‌ی یک اثر هنری برام از ساختنش هم جذاب‌تره.',
+      'دوست دارم درباره‌ی معنا و مفهوم پشت یک اثر فکر کنم.',
+      'وقتی یک ایده دارم، ترجیح می‌دم اول با کلمه توضیحش بدم تا تصویر.'
+    ]}
+  ]
+};
+
+const MODULES = { mirror:MIRROR, iq:IQ, career:CAREER };
+
+/* ---------------- STATE ---------------- */
+let state = { moduleKey:null, sectionIndex:0, answers:{}, texts:{}, name:'', field:'', phone:'' };
+
+/* ---------------- ambient animation helpers ---------------- */
+function spawnFloatingSquares(){
+  const field = document.getElementById('bgField');
+  if(!field) return;
+  const colors = ['var(--ink)','var(--navy)','var(--orange)'];
+  for(let i=0;i<10;i++){
+    const sq = document.createElement('div');
+    sq.className = 'floating-sq';
+    sq.style.left = Math.random()*100+'%';
+    sq.style.bottom = '-20px';
+    sq.style.background = colors[i%3];
+    sq.style.animationDuration = (10+Math.random()*10)+'s';
+    sq.style.animationDelay = (Math.random()*10)+'s';
+    field.appendChild(sq);
+  }
+}
+spawnFloatingSquares();
+
+function confettiBurst(){
+  const colors = ['#14151C','#232842','#E37222'];
+  for(let i=0;i<26;i++){
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.left = Math.random()*100+'vw';
+    p.style.background = colors[i%3];
+    p.style.animationDuration = (2.2+Math.random()*1.6)+'s';
+    p.style.animationDelay = (Math.random()*0.6)+'s';
+    p.style.borderRadius = Math.random()>0.5 ? '2px':'50%';
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(), 4200);
+  }
+}
+
+function animateCount(el, target, suffix='%'){
+  if(!el) return;
+  const duration = 900;
+  const startTime = performance.now();
+  function tick(now){
+    const p = Math.min(1, (now-startTime)/duration);
+    const eased = 1 - Math.pow(1-p, 3);
+    el.textContent = Math.round(eased*target)+suffix;
+    if(p<1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+let currentAdminTab = 'mirror';
+
+/* ---------------- NAVIGATION ---------------- */
+function goTo(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelector(`.screen[data-screen="${name}"]`).classList.add('active');
+  updateStepLabel(name);
+  updateProgress(name);
+
+}
+
+function updateStepLabel(name){
+  const mod = state.moduleKey ? MODULES[state.moduleKey] : null;
+  let label = 'آینه';
+  if(name==='home') label = 'فهرست';
+  else if(name==='info' && mod) label = mod.info.eyebrow;
+  else if(name==='q' && mod) label = mod.domains[state.sectionIndex].name;
+  else if(name==='results' && mod) label = 'نتیجه';
+  else if(name==='admin') label = 'پنل';
+  document.getElementById('stepLabel').textContent = label;
+}
+
+function updateProgress(name){
+  const mod = state.moduleKey ? MODULES[state.moduleKey] : null;
+  if(!mod || name==='home' || name==='admin'){
+    document.getElementById('progressFill').style.width = '0%';
+    return;
+  }
+  const total = mod.domains.length + 2; // info + sections + results
+  let stepNum = 0;
+  if(name==='info') stepNum = 1;
+  else if(name==='q') stepNum = 1 + state.sectionIndex + 1;
+  else if(name==='results') stepNum = total;
+  document.getElementById('progressFill').style.width = Math.min(100,(stepNum/total)*100)+'%';
+}
+
+function enterModule(key){
+  state.moduleKey = key;
+  state.sectionIndex = 0;
+  state.answers = {};
+  state.texts = {};
+  const mod = MODULES[key];
+  document.getElementById('infoEyebrow').textContent = mod.info.eyebrow;
+  document.getElementById('infoTitle').textContent = mod.info.title;
+  document.getElementById('infoLead').textContent = mod.info.lead;
+  document.getElementById('inpName').value = '';
+  document.getElementById('inpField').value = '';
+  document.getElementById('inpPhone').value = '';
+  goTo('info');
+}
+
+function startModule(){
+  state.name = document.getElementById('inpName').value.trim();
+  state.field = document.getElementById('inpField').value.trim();
+  state.phone = document.getElementById('inpPhone').value.trim();
+  state.sectionIndex = 0;
+  renderSection();
+  goTo('q');
+}
+
+/* ---------------- QUESTION RENDERING ---------------- */
+function renderSection(){
+  const mod = MODULES[state.moduleKey];
+  const domain = mod.domains[state.sectionIndex];
+  document.getElementById('qEyebrow').textContent = `بخش ${state.sectionIndex+1} از ${mod.domains.length}`;
+  document.getElementById('qTitle').textContent = domain.name;
+  const body = document.getElementById('qBody');
+  body.innerHTML = '';
+
+  if(domain.type === 'likert'){
+    domain.items.forEach((qText, qi)=>{
+      const qid = `${domain.id}_${qi}`;
+      const block = document.createElement('div');
+      block.className = 'q-block';
+      block.style.animationDelay = (qi*0.08)+'s';
+      block.innerHTML = `
+        <div class="q-num mono">سوال ${qi+1}</div>
+        <div class="q-text">${qText}</div>
+        <div class="likert" data-qid="${qid}">
+          ${LIKERT.map(v=>`<button type="button" onclick="selectLikert('${qid}',${v})">${v}</button>`).join('')}
+        </div>
+        <div class="likert-labels"><span>کاملاً مخالفم</span><span>کاملاً موافقم</span></div>
+      `;
+      body.appendChild(block);
+    });
+  } else if(domain.type === 'mc'){
+    domain.items.forEach((item, qi)=>{
+      const qid = `${domain.id}_${qi}`;
+      const block = document.createElement('div');
+      block.className = 'q-block';
+      block.style.animationDelay = (qi*0.08)+'s';
+      block.innerHTML = `
+        <div class="q-num mono">سوال ${qi+1}</div>
+        <div class="q-text">${item.q}</div>
+        <div class="mc-options" data-qid="${qid}">
+          ${item.options.map((opt,oi)=>`<button type="button" onclick="selectMC('${qid}',${oi})">${opt}</button>`).join('')}
+        </div>
+      `;
+      body.appendChild(block);
+    });
+  } else if(domain.type === 'text'){
+    domain.items.forEach((item, qi)=>{
+      const qid = `${domain.id}_${qi}`;
+      const block = document.createElement('div');
+      block.className = 'q-block';
+      block.style.animationDelay = (qi*0.08)+'s';
+      block.innerHTML = `
+        <div class="q-num mono">سوال ${qi+1}</div>
+        <div class="q-text">${item.q}</div>
+        <textarea data-qid="${qid}" oninput="state.texts['${qid}']=this.value" placeholder="جواب آزاده، هرچی به ذهنت رسید بنویس..."></textarea>
+      `;
+      body.appendChild(block);
+    });
+  }
+
+  refreshSelections();
+  checkSectionComplete();
+}
+
+function selectLikert(qid, value){
+  state.answers[qid] = value;
+  refreshSelections();
+  checkSectionComplete();
+}
+function selectMC(qid, idx){
+  state.answers[qid] = idx;
+  refreshSelections();
+  checkSectionComplete();
+}
+
+function refreshSelections(){
+  document.querySelectorAll('.likert').forEach(group=>{
+    const qid = group.getAttribute('data-qid');
+    const val = state.answers[qid];
+    group.querySelectorAll('button').forEach((btn,i)=> btn.classList.toggle('selected', val === i+1));
+  });
+  document.querySelectorAll('.mc-options').forEach(group=>{
+    const qid = group.getAttribute('data-qid');
+    const val = state.answers[qid];
+    group.querySelectorAll('button').forEach((btn,i)=> btn.classList.toggle('selected', val === i));
+  });
+}
+
+function checkSectionComplete(){
+  const mod = MODULES[state.moduleKey];
+  const domain = mod.domains[state.sectionIndex];
+  let complete = true;
+  if(domain.type === 'likert' || domain.type === 'mc'){
+    complete = domain.items.every((_,qi)=> state.answers[`${domain.id}_${qi}`] !== undefined);
+  }
+  // text sections are optional — always allowed to continue
+  document.getElementById('qNextBtn').disabled = !complete;
+}
+
+function nextSection(){
+  const mod = MODULES[state.moduleKey];
+  if(state.sectionIndex < mod.domains.length - 1){
+    state.sectionIndex++;
+    renderSection();
+    updateProgress('q');
+    updateStepLabel('q');
+  } else {
+    finishModule();
+  }
+}
+function prevSection(){
+  if(state.sectionIndex > 0){
+    state.sectionIndex--;
+    renderSection();
+    updateProgress('q');
+    updateStepLabel('q');
+  } else {
+    goTo('info');
+  }
+}
+
+/* ---------------- SCORING ---------------- */
+function likertDomainPct(items, prefix){
+  let sum = 0;
+  items.forEach((_,qi)=> sum += state.answers[`${prefix}_${qi}`]);
+  const n = items.length;
+  return Math.round(((sum - n) / (4*n)) * 100);
+}
+function mcDomainPct(items, prefix){
+  let correct = 0;
+  items.forEach((item,qi)=>{ if(state.answers[`${prefix}_${qi}`] === item.correct) correct++; });
+  return Math.round((correct/items.length)*100);
+}
+
+function finishModule(){
+  const key = state.moduleKey;
+  if(key === 'mirror') finishMirror();
+  else if(key === 'iq') finishIQ();
+  else if(key === 'career') finishCareer();
+  goTo('results');
+  setTimeout(confettiBurst, 350);
+}
+
+/* ----- MIRROR results ----- */
+function finishMirror(){
+  const mod = MIRROR;
+  const scores = {};
+  mod.domains.forEach(d=> scores[d.id] = likertDomainPct(d.items, d.id));
+  const ids = mod.domains.map(d=>d.id);
+  const focusAxis = ids.reduce((m,id)=> scores[id] < scores[m] ? id : m, ids[0]);
+  const strengthAxis = ids.reduce((m,id)=> scores[id] > scores[m] ? id : m, ids[0]);
+  const overall = Math.round(ids.reduce((s,id)=>s+scores[id],0)/ids.length);
+
+  document.getElementById('resEyebrow').textContent = 'نتیجه‌ی آینه';
+  document.getElementById('resGreeting').textContent = state.name ? `${state.name}، این آینه‌ی امروز توئه` : 'این آینه‌ی امروز توئه';
+
+  let html = '';
+  mod.domains.forEach((d, idx)=>{
+    const pct = Math.max(0,Math.min(100,scores[d.id]));
+    const isFocus = d.id === focusAxis;
+    html += `<div class="axis-row" style="animation-delay:${idx*0.1}s">
+      <div class="axis-top"><span class="axis-name">${d.name}</span><span class="axis-pct mono" id="pct-${d.id}">0%</span></div>
+      <div class="bar-track"><div class="bar-fill ${isFocus?'focus':''}" id="bar-${d.id}" style="width:0%"></div></div>
+    </div>`;
+  });
+  html += `<div class="insight-card">
+    <div class="eyebrow">نگاه مستر وایت</div>
+    <p>${mod.strengthText[strengthAxis]}</p>
+    <p>${mod.focusText[focusAxis]}</p>
+  </div>
+  <div class="question-prompt">
+    <div class="eyebrow">برای جلسه‌ی امروز</div>
+    <p>${mod.sessionQuestion[focusAxis]}</p>
+  </div>`;
+  document.getElementById('resBody').innerHTML = html;
+  mod.domains.forEach((d, idx)=>{
+    const pct = Math.max(0,Math.min(100,scores[d.id]));
+    setTimeout(()=>{
+      document.getElementById('bar-'+d.id).style.width = pct+'%';
+      animateCount(document.getElementById('pct-'+d.id), pct);
+    }, 150 + idx*100);
+  });
+
+  saveSubmission(mod.storagePrefix, { scores, focusAxis, strengthAxis, overall });
+}
+
+/* ----- IQ results ----- */
+function finishIQ(){
+  const mod = IQ;
+  const logicPct = mcDomainPct(mod.domains[0].items, 'logic');
+  const verbalPct = mcDomainPct(mod.domains[1].items, 'verbal');
+  const spatialPct = mcDomainPct(mod.domains[2].items, 'spatial');
+  const objective = { logic:logicPct, verbal:verbalPct, spatial:spatialPct };
+  const dominant = Object.keys(objective).reduce((m,k)=> objective[k] > objective[m] ? k : m, 'logic');
+
+  const creativityItems = mod.domains[3].items;
+  const creativeAnswers = creativityItems.map((item,qi)=>({
+    q:item.q, a: (state.texts[`creativity_${qi}`]||'').trim()
+  }));
+
+  document.getElementById('resEyebrow').textContent = 'نتیجه‌ی هوش و استعداد ذهنی';
+  document.getElementById('resGreeting').textContent = state.name ? `${state.name}، این سبک ذهنی توئه` : 'این سبک ذهنی توئه';
+
+  let html = '';
+  const iqRows = [['منطقی-عددی','logic',logicPct],['کلامی','verbal',verbalPct],['بصری-فضایی','spatial',spatialPct]];
+  iqRows.forEach(([name,id,pct], idx)=>{
+    html += `<div class="axis-row" style="animation-delay:${idx*0.1}s">
+      <div class="axis-top"><span class="axis-name">${name}</span><span class="axis-pct mono" id="pct-iq-${id}">0%</span></div>
+      <div class="bar-track"><div class="bar-fill" id="bar-iq-${id}" style="width:0%"></div></div>
+    </div>`;
+  });
+  html += `<div class="insight-card">
+    <div class="eyebrow">نگاه مستر وایت</div>
+    <p>${mod.dominantText[dominant]}</p>
+    <p>این یعنی توی جلسه بهتره مفاهیم رو با ${dominant==='logic'?'مثال و ترتیب منطقی':dominant==='verbal'?'کلمه و توضیح':'تصویر و مثال ملموس'} براش توضیح بدید.</p>
+  </div>`;
+  html += `<div class="creative-echo"><div class="eyebrow">جواب‌های خلاقانه‌ی تو</div>`;
+  creativeAnswers.forEach(ca=>{
+    html += `<div class="echo-item"><div class="echo-q">${ca.q}</div>${ca.a ? ca.a : '<span style="color:var(--soft)">— جواب داده نشد —</span>'}</div>`;
+  });
+  html += `</div>`;
+  document.getElementById('resBody').innerHTML = html;
+  iqRows.forEach(([name,id,pct], idx)=>{
+    const clamped = Math.max(0,pct);
+    setTimeout(()=>{
+      document.getElementById('bar-iq-'+id).style.width = clamped+'%';
+      animateCount(document.getElementById('pct-iq-'+id), clamped);
+    }, 150 + idx*100);
+  });
+
+  saveSubmission(mod.storagePrefix, { objective, dominant, creativeAnswers });
+}
+
+/* ----- CAREER results ----- */
+function finishCareer(){
+  const mod = CAREER;
+  const scores = {};
+  mod.domains.forEach(d=> scores[d.id] = likertDomainPct(d.items, d.id));
+  const sorted = mod.domains.map(d=>d.id).sort((a,b)=> scores[b]-scores[a]);
+  const top2 = sorted.slice(0,2);
+
+  document.getElementById('resEyebrow').textContent = 'نتیجه‌ی استعدادیابی شغلی-هنری';
+  document.getElementById('resGreeting').textContent = state.name ? `${state.name}، دنیای هنری نزدیک به تو` : 'دنیای هنری نزدیک به تو';
+
+  let html = '';
+  mod.domains.forEach((d, idx)=>{
+    const pct = Math.max(0,Math.min(100,scores[d.id]));
+    const isTop = top2.includes(d.id);
+    html += `<div class="axis-row" style="animation-delay:${idx*0.1}s">
+      <div class="axis-top"><span class="axis-name">${d.name}</span><span class="axis-pct mono" id="pct-c-${d.id}">0%</span></div>
+      <div class="bar-track"><div class="bar-fill ${isTop?'focus':''}" id="bar-c-${d.id}" style="width:0%"></div></div>
+    </div>`;
+  });
+  const nameOf = id => mod.domains.find(d=>d.id===id).name;
+  html += `<div class="insight-card">
+    <div class="eyebrow">نگاه مستر وایت</div>
+    <p>دو حوزه‌ای که بیشترین تمایل رو داری: «${nameOf(top2[0])}» و «${nameOf(top2[1])}».</p>
+    <p>این یعنی ارزش داره توی جلسه درباره‌ی مسیرهای مرتبط با همین دو حوزه بیشتر صحبت کنید — نه فقط رشته‌ای که این روزها بین اطرافیانت مرسومه.</p>
+  </div>`;
+  document.getElementById('resBody').innerHTML = html;
+  mod.domains.forEach((d, idx)=>{
+    const pct = Math.max(0,Math.min(100,scores[d.id]));
+    setTimeout(()=>{
+      document.getElementById('bar-c-'+d.id).style.width = pct+'%';
+      animateCount(document.getElementById('pct-c-'+d.id), pct);
+    }, 150 + idx*100);
+  });
+
+  saveSubmission(mod.storagePrefix, { scores, top2 });
+}
+
+/* ---------------- GOOGLE FORM SUBMISSION ---------------- */
+const GOOGLE_FORM_ACTION = 'https://docs.google.com/forms/d/e/1FAIpQLScZEDPb9iMjxi-FgzGbZjLQAue-zRoDFB66neJTpcail21jLw/formResponse';
+const GOOGLE_FORM_ENTRIES = {
+  name:   'entry.2068624370',
+  field:  'entry.201096764',
+  phone:  'entry.2027058422',
+  module: 'entry.707349483',
+  data:   'entry.2011011603'
+};
+
+const MODULE_LABEL = { mirror:'آینه', iq:'هوش و استعداد ذهنی', career:'استعدادیابی شغلی-هنری' };
+
+async function saveSubmission(prefix, extra){
+  try{
+    const payload = Object.assign({
+      timestamp: new Date().toISOString()
+    }, extra);
+
+    const params = [
+      `${GOOGLE_FORM_ENTRIES.name}=${encodeURIComponent(state.name || '(بدون نام)')}`,
+      `${GOOGLE_FORM_ENTRIES.field}=${encodeURIComponent(state.field || '')}`,
+      `${GOOGLE_FORM_ENTRIES.phone}=${encodeURIComponent(state.phone || '')}`,
+      `${GOOGLE_FORM_ENTRIES.module}=${encodeURIComponent(MODULE_LABEL[state.moduleKey] || state.moduleKey)}`,
+      `${GOOGLE_FORM_ENTRIES.data}=${encodeURIComponent(JSON.stringify(payload))}`
+    ].join('&');
+
+    // Google Forms doesn't send CORS headers back, so we use no-cors:
+    // the request still submits, we just can't read the response.
+    // Body must be a plain string (not FormData) to stay structured-cloneable
+    // inside this preview sandbox.
+    await fetch(GOOGLE_FORM_ACTION, {
+      method:'POST',
+      mode:'no-cors',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params
+    });
+  } catch(e){
+    console.error('Google Form submission error:', e);
+  }
+}
+</script>
+</body>
+</html>
